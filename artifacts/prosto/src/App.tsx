@@ -6,7 +6,6 @@ import Home from '@/pages/Home';
 import MenuPage from '@/pages/MenuPage';
 import CheckoutPage from '@/pages/CheckoutPage';
 import InstallPage from '@/pages/InstallPage';
-import PWAInstallBanner from '@/components/PWAInstallBanner';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 
 const queryClient = new QueryClient();
@@ -36,7 +35,6 @@ function App() {
           <Router />
         </WouterRouter>
         <Toaster />
-        <PWAInstallBanner />
       </TooltipProvider>
     </QueryClientProvider>
   );

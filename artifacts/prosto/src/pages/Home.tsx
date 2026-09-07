@@ -11,7 +11,6 @@ import MapSection from '@/components/MapSection';
 import ReadingProgress from '@/components/ReadingProgress';
 import TypewriterText from '@/components/TypewriterText';
 import WavyDivider from '@/components/WavyDivider';
-import FloatingSidebar from '@/components/FloatingSidebar';
 import RestaurantStatus from '@/components/RestaurantStatus';
 import { HeartIcon } from '@/components/AnimatedIcons';
 
@@ -268,7 +267,6 @@ export default function Home() {
 
       {/* ─── Global overlays ─── */}
       <ReadingProgress />
-      <FloatingSidebar />
 
       {/* ─── NAVBAR ─── */}
       <motion.nav

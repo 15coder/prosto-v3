@@ -151,7 +151,7 @@ export default function MenuPage() {
         </div>
       </section>
 
-      <div className="container mx-auto space-y-20 px-6 pb-44">
+      <div className="container mx-auto space-y-20 px-6 pb-16">
         {menuCategories.map((category) => {
           const items = menuItems.filter((item) => item.category === category);
           return (
@@ -178,8 +178,8 @@ export default function MenuPage() {
         })}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-4">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 rounded-2xl border border-primary/30 bg-[#131108]/95 p-3 shadow-[0_0_45px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:p-4">
+      <div className="container mx-auto mt-10 px-6 pb-10">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 rounded-2xl border border-primary/30 bg-[#131108]/95 p-3 shadow-[0_0_45px_rgba(0,0,0,0.5)] sm:p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-black">
               <ShoppingBag className="h-5 w-5" />
