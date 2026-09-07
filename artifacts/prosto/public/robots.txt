@@ -1,6 +1,11 @@
 User-agent: *
 Allow: /
+
+# صفحات الطلب تعتمد على جلسة المستخدم ولا تصلح للفهرسة
 Disallow: /checkout
+
+# مسارات التشغيل الداخلية والوظائف الخادمية
 Disallow: /api/
+Disallow: /.netlify/
 
 Sitemap: https://prosto-restaurant.netlify.app/sitemap.xml
