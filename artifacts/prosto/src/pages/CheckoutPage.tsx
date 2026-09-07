@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle,
   ArrowRight,
-  CheckCircle2,
   MapPin,
   MessageCircle,
   Minus,
-  Navigation,
   Plus,
   RotateCcw,
   ShoppingBag,
@@ -15,11 +12,11 @@ import {
   X,
 } from "lucide-react";
 import { useLocation } from "wouter";
+import LocationPickerModal from "@/components/LocationPickerModal";
 import {
   formatSYP,
   getCartLines,
   getCartTotal,
-  getExactLocation,
   readCart,
   sendOrderToWhatsApp,
   type CartQuantities,
@@ -31,7 +28,6 @@ const DELIVERY_RATE_PER_KM = 1000;
 const COUPON_CODE = "Hello";
 const COUPON_DISCOUNT_RATE = 0.1;
 
-type LocationStatus = "idle" | "loading" | "success" | "error";
 type TelegramStatus = "idle" | "sending" | "success" | "error";
 
 function haversineDistanceInKm(
@@ -62,16 +58,12 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState<CartQuantities>(() => readCart());
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [mapsUrl, setMapsUrl] = useState("");
-  const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
-  const [locationError, setLocationError] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [couponApplied, setCouponApplied] = useState(false);
   const [couponMessage, setCouponMessage] = useState("");
   const [telegramStatus, setTelegramStatus] = useState<TelegramStatus>("idle");
   const [telegramMessage, setTelegramMessage] = useState("");
-  const [manualLocationInput, setManualLocationInput] = useState("");
-  const [manualLocationMessage, setManualLocationMessage] = useState("");
-  const [showManualLocation, setShowManualLocation] = useState(false);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [clearCartConfirmOpen, setClearCartConfirmOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
 
@@ -114,52 +106,6 @@ export default function CheckoutPage() {
     setCouponCode("");
     setCouponApplied(false);
     setCouponMessage("");
-  };
-
-  const requestLocation = async () => {
-    setLocationStatus("loading");
-    setLocationError("");
-    try {
-      const location = await getExactLocation();
-      setCoordinates({ lat: location.lat, lng: location.lng });
-      setMapsUrl(location.mapsUrl);
-      setLocationStatus("success");
-      setShowManualLocation(false);
-      setManualLocationMessage("");
-    } catch {
-      setLocationStatus("error");
-      setLocationError("لم نتمكن من الوصول إلى موقعك. يمكنك إدخاله يدوياً بدلاً من ذلك.");
-      setShowManualLocation(true);
-    }
-  };
-
-  const applyManualLocation = () => {
-    const parts = manualLocationInput
-      .replace("،", ",")
-      .split(/[,\s]+/)
-      .map((part) => Number(part.trim()))
-      .filter((part) => Number.isFinite(part));
-
-    const [latitude, longitude] = parts;
-    if (
-      parts.length !== 2 ||
-      latitude === undefined ||
-      longitude === undefined ||
-      latitude < -90 ||
-      latitude > 90 ||
-      longitude < -180 ||
-      longitude > 180
-    ) {
-      setManualLocationMessage("أدخل الإحداثيات بهذا الشكل: 35.3311, 40.1407");
-      return;
-    }
-
-    setCoordinates({ lat: latitude, lng: longitude });
-    setMapsUrl(`https://maps.google.com/?q=${latitude},${longitude}`);
-    setLocationStatus("success");
-    setLocationError("");
-    setManualLocationMessage("تم حفظ موقعك اليدوي وحساب التوصيل.");
-    setShowManualLocation(false);
   };
 
   const openOrderSummary = () => {
@@ -361,88 +307,20 @@ export default function CheckoutPage() {
                 </div>
                 <div>
                   <h2 className="font-black">حدد موقع التوصيل</h2>
-                  <p className="mt-1 text-sm leading-6 text-foreground">سنحسب المسافة من المطعم ونضيف 1,000 ليرة عن كل كيلومتر.</p>
+                <p className="mt-1 text-sm leading-6 text-foreground">حرّك الدبوس إلى باب منزلك لنحسب المسافة ونضيف 1,000 ليرة عن كل كيلومتر.</p>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={requestLocation}
-                disabled={locationStatus === "loading"}
+                onClick={() => setLocationPickerOpen(true)}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 font-black text-black transition-all hover:shadow-[0_0_25px_rgba(245,200,0,0.35)] disabled:cursor-wait disabled:opacity-60"
               >
-                {locationStatus === "loading" ? (
-                  "جارٍ تحديد موقعك..."
-                ) : locationStatus === "success" ? (
-                  <>
-                    <CheckCircle2 className="h-5 w-5" />
-                    تم تحديد موقعي
-                  </>
-                ) : (
-                  <>
-                    <Navigation className="h-5 w-5" />
-                    تحديد موقعي الآن
-                  </>
-                )}
+                <MapPin className="h-5 w-5" />
+                {coordinates ? "تعديل موقع التوصيل" : "اختيار موقع التوصيل على الخريطة"}
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowManualLocation((current) => !current);
-                  setManualLocationMessage("");
-                }}
-                className="mt-3 w-full rounded-xl border border-foreground/15 px-5 py-3 text-sm font-bold text-foreground transition-colors hover:border-primary hover:text-primary"
-              >
-                {showManualLocation ? "إغلاق الإدخال اليدوي" : "إدخال الموقع يدوياً"}
-              </button>
-
-              {showManualLocation && (
-                <form
-                  className="mt-4 rounded-2xl border border-foreground/10 bg-black/15 p-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    applyManualLocation();
-                  }}
-                >
-                  <label htmlFor="manual-location" className="text-sm font-bold">
-                    إحداثيات موقعك
-                  </label>
-                  <p className="mt-1 text-xs leading-5 text-foreground">
-                    انسخ الإحداثيات من خرائط Google بهذا الشكل: خط العرض، خط الطول
-                  </p>
-                  <input
-                    id="manual-location"
-                    value={manualLocationInput}
-                    onChange={(event) => setManualLocationInput(event.target.value)}
-                    placeholder="35.3311, 40.1407"
-                    inputMode="decimal"
-                    dir="ltr"
-                    className="mt-3 w-full rounded-xl border border-foreground/15 bg-black/20 px-3 py-3 text-center text-sm font-bold text-foreground outline-none transition-colors placeholder:text-foreground/40 focus:border-primary"
-                  />
-                  <a
-                    href="https://maps.google.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-block text-xs font-bold text-primary hover:underline"
-                  >
-                    افتح خرائط Google لنسخ الإحداثيات
-                  </a>
-                  <button
-                    type="submit"
-                    className="mt-3 w-full rounded-xl bg-primary px-4 py-3 text-sm font-black text-black transition-transform hover:-translate-y-0.5"
-                  >
-                    حفظ الموقع وحساب التوصيل
-                  </button>
-                  {manualLocationMessage && (
-                    <p className={`mt-3 text-xs font-bold ${locationStatus === "success" ? "text-emerald-300" : "text-red-300"}`}>
-                      {manualLocationMessage}
-                    </p>
-                  )}
-                </form>
-              )}
-
-              {locationStatus === "success" && distance !== null && deliveryFee !== null && (
+              {coordinates && distance !== null && deliveryFee !== null && (
                 <div className="mt-4 rounded-2xl border border-primary/20 bg-black/15 p-4">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-foreground">المسافة المحسوبة</span>
@@ -452,14 +330,15 @@ export default function CheckoutPage() {
                     <span className="text-foreground">المسافة المحاسبية</span>
                     <strong>{billableKilometers} كم × {formatSYP(DELIVERY_RATE_PER_KM)}</strong>
                   </div>
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-block text-xs font-bold text-primary hover:underline"
+                  >
+                    فتح موقع التوصيل على الخريطة
+                  </a>
                 </div>
-              )}
-
-              {locationStatus === "error" && (
-                <p className="mt-4 flex items-start gap-2 text-sm leading-6 text-red-300">
-                  <AlertCircle className="mt-1 h-4 w-4 shrink-0" />
-                  {locationError}
-                </p>
               )}
             </section>
 
@@ -522,7 +401,7 @@ export default function CheckoutPage() {
               <button
                 type="button"
                 onClick={openOrderSummary}
-                disabled={!coordinates || locationStatus !== "success" || telegramStatus === "sending"}
+                disabled={!coordinates || telegramStatus === "sending"}
                 className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-4 font-black text-[#071b0d] transition-all hover:scale-[1.01] hover:shadow-[0_0_25px_rgba(37,211,102,0.3)] disabled:cursor-not-allowed disabled:opacity-35"
               >
                 <MessageCircle className="h-5 w-5" />
@@ -620,6 +499,17 @@ export default function CheckoutPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {locationPickerOpen && (
+        <LocationPickerModal
+          onClose={() => setLocationPickerOpen(false)}
+          onConfirm={(selectedMapsUrl, lat, lng) => {
+            setCoordinates({ lat, lng });
+            setMapsUrl(selectedMapsUrl);
+            setLocationPickerOpen(false);
+          }}
+        />
       )}
     </main>
   );
