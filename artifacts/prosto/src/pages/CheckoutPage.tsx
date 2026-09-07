@@ -22,6 +22,7 @@ import {
   readCart,
   type CartQuantities,
 } from "@/lib/order";
+import LocationMapPreview from "@/components/LocationMapPreview";
 
 const WHATSAPP_NUMBER = "963996006263";
 const RESTAURANT_LOCATION = { lat: 35.3311, lng: 40.1407 };
@@ -376,6 +377,8 @@ export default function CheckoutPage() {
                   <p className="mt-1 text-sm leading-6 text-foreground">سنحسب المسافة من المطعم ونضيف 1,000 ليرة عن كل كيلومتر.</p>
                 </div>
               </div>
+
+              <LocationMapPreview coordinates={coordinates} />
 
               <button
                 type="button"
