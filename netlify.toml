@@ -1,0 +1,14 @@
+[build]
+  base    = "."
+  command = "pnpm install && pnpm --filter @workspace/prosto run build"
+  publish = "artifacts/prosto/dist/public"
+
+[build.environment]
+  BASE_PATH = "/"
+  PORT      = "3000"
+  NODE_ENV  = "production"
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "PROSTO Restaurant"
+description = "A bilingual (Arabic/English) animated landing page for PROSTO fast food restaurant in Deir ez-Zor, Syria. Features cinematic food photography, glass morphism design, smooth scroll animations, and a menu showcase."
+version = "1.0.0"
+id = "artifacts/prosto"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26222
+
+[services.development]
+run = "pnpm --filter @workspace/prosto run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/prosto", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/prosto/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26222"
+BASE_PATH = "/"

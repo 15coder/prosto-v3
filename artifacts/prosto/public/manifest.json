@@ -1,0 +1,38 @@
+{
+  "name": "مطعم بروستو",
+  "short_name": "بروستو",
+  "description": "أفضل دجاج مقرمش وبرغر وشاورما في دير الزور",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0800",
+  "theme_color": "#f5c800",
+  "lang": "ar",
+  "dir": "rtl",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "lifestyle"],
+  "screenshots": []
+}
