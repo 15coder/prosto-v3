@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowRight,
@@ -28,6 +28,9 @@ const RESTAURANT_LOCATION = { lat: 35.3311, lng: 40.1407 };
 const DELIVERY_RATE_PER_KM = 1000;
 const COUPON_CODE = "Hello";
 const COUPON_DISCOUNT_RATE = 0.1;
+const LOCATION_CAPTURE_TIMEOUT_MS = 25000;
+const MAX_ACCEPTABLE_LOCATION_ACCURACY_METERS = 50;
+const TARGET_LOCATION_ACCURACY_METERS = 25;
 
 type LocationStatus = "idle" | "loading" | "success" | "error";
 type TelegramStatus = "idle" | "sending" | "success" | "error";
@@ -59,6 +62,7 @@ export default function CheckoutPage() {
   const [, setLocation] = useLocation();
   const [cart, setCart] = useState<CartQuantities>(() => readCart());
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationError, setLocationError] = useState("");
   const [couponCode, setCouponCode] = useState("");
@@ -72,6 +76,20 @@ export default function CheckoutPage() {
   const [orderNotes, setOrderNotes] = useState("");
   const [clearCartConfirmOpen, setClearCartConfirmOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const locationWatchRef = useRef<number | null>(null);
+  const locationTimerRef = useRef<number | null>(null);
+  const bestLocationRef = useRef<GeolocationPosition | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (locationWatchRef.current !== null) {
+        navigator.geolocation?.clearWatch(locationWatchRef.current);
+      }
+      if (locationTimerRef.current !== null) {
+        window.clearTimeout(locationTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem("prosto-cart-v1", JSON.stringify(cart));
@@ -118,29 +136,105 @@ export default function CheckoutPage() {
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus("error");
-      setLocationError("المتصفح لا يدعم تحديد الموقع. افتح الصفحة من هاتف حديث وحاول مجددًا.");
+      setLocationError("المتصفح لا يدعم تحديد الموقع. استخدم خرائط Google لنسخ الإحداثيات وإدخالها يدوياً.");
       return;
     }
 
+    if (locationWatchRef.current !== null) {
+      navigator.geolocation.clearWatch(locationWatchRef.current);
+      locationWatchRef.current = null;
+    }
+    if (locationTimerRef.current !== null) {
+      window.clearTimeout(locationTimerRef.current);
+      locationTimerRef.current = null;
+    }
+
+    bestLocationRef.current = null;
+    setCoordinates(null);
+    setLocationAccuracy(null);
     setLocationStatus("loading");
     setLocationError("");
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCoordinates({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setLocationStatus("success");
-        setShowManualLocation(false);
-        setManualLocationMessage("");
-      },
-      () => {
-        setLocationStatus("error");
-        setLocationError("لم نتمكن من الوصول إلى موقعك. يمكنك إدخاله يدوياً بدلاً من ذلك.");
-        setShowManualLocation(true);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+    setManualLocationMessage("");
+
+    const finishLocationCapture = (position: GeolocationPosition) => {
+      if (locationWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+        locationWatchRef.current = null;
+      }
+      if (locationTimerRef.current !== null) {
+        window.clearTimeout(locationTimerRef.current);
+        locationTimerRef.current = null;
+      }
+
+      setCoordinates({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+      setLocationAccuracy(position.coords.accuracy);
+      setLocationStatus("success");
+      setLocationError("");
+      setShowManualLocation(false);
+      setManualLocationMessage("");
+    };
+
+    const finishWithLocationError = (message: string) => {
+      if (locationWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+        locationWatchRef.current = null;
+      }
+      if (locationTimerRef.current !== null) {
+        window.clearTimeout(locationTimerRef.current);
+        locationTimerRef.current = null;
+      }
+
+      setLocationStatus("error");
+      setLocationError(message);
+      setShowManualLocation(true);
+    };
+
+    const handlePosition = (position: GeolocationPosition) => {
+      const currentBest = bestLocationRef.current;
+      if (!currentBest || position.coords.accuracy < currentBest.coords.accuracy) {
+        bestLocationRef.current = position;
+      }
+
+      if (position.coords.accuracy <= TARGET_LOCATION_ACCURACY_METERS) {
+        finishLocationCapture(position);
+      }
+    };
+
+    const handlePositionError = (error: GeolocationPositionError) => {
+      if (error.code === 1) {
+        finishWithLocationError(
+          "تم رفض إذن الموقع. فعّل إذن الموقع للمتصفح وخيار الموقع الدقيق من إعدادات الهاتف، ثم أعد المحاولة.",
+        );
+      }
+    };
+
+    locationWatchRef.current = navigator.geolocation.watchPosition(handlePosition, handlePositionError, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: LOCATION_CAPTURE_TIMEOUT_MS,
+    });
+
+    locationTimerRef.current = window.setTimeout(() => {
+      const bestPosition = bestLocationRef.current;
+      if (!bestPosition) {
+        finishWithLocationError(
+          "لم تصل أي قراءة GPS. فعّل GPS/خدمات الموقع، اخرج إلى مكان مفتوح، ثم اضغط إعادة المحاولة.",
+        );
+        return;
+      }
+
+      if (bestPosition.coords.accuracy > MAX_ACCEPTABLE_LOCATION_ACCURACY_METERS) {
+        finishWithLocationError(
+          `دقة GPS الحالية تقريباً ±${Math.round(bestPosition.coords.accuracy)} متر، وهي غير كافية لضمان موقع صحيح. فعّل «الموقع الدقيق» وحاول من جديد، أو انسخ إحداثيات النقطة الزرقاء من خرائط Google.`,
+        );
+        return;
+      }
+
+      finishLocationCapture(bestPosition);
+    }, LOCATION_CAPTURE_TIMEOUT_MS);
   };
 
   const applyManualLocation = () => {
@@ -165,6 +259,7 @@ export default function CheckoutPage() {
     }
 
     setCoordinates({ lat: latitude, lng: longitude });
+    setLocationAccuracy(null);
     setLocationStatus("success");
     setLocationError("");
     setManualLocationMessage("تم حفظ موقعك اليدوي وحساب التوصيل.");
@@ -377,7 +472,9 @@ export default function CheckoutPage() {
                 </div>
                 <div>
                   <h2 className="font-black">حدد موقع التوصيل</h2>
-                  <p className="mt-1 text-sm leading-6 text-foreground">سنحسب المسافة من المطعم ونضيف 1,000 ليرة عن كل كيلومتر.</p>
+                 <p className="mt-1 text-sm leading-6 text-foreground">
+                   سننتظر أفضل قراءة GPS حتى 25 ثانية ولن نعتمد موقعاً تقريبياً. فعّل «الموقع الدقيق» في هاتفك.
+                 </p>
                 </div>
               </div>
 
@@ -460,6 +557,14 @@ export default function CheckoutPage() {
 
               {locationStatus === "success" && distance !== null && deliveryFee !== null && (
                 <div className="mt-4 rounded-2xl border border-primary/20 bg-black/15 p-4">
+                  {locationAccuracy !== null && (
+                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-foreground/10 pb-3 text-sm">
+                      <span className="text-foreground">دقة GPS المعتمدة</span>
+                      <strong className={locationAccuracy <= TARGET_LOCATION_ACCURACY_METERS ? "text-emerald-300" : "text-primary"}>
+                        ±{Math.round(locationAccuracy)} متر
+                      </strong>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-foreground">المسافة المحسوبة</span>
                     <strong className="text-primary">{formatDistance(distance)}</strong>
