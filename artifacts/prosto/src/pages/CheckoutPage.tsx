@@ -22,7 +22,6 @@ import {
   readCart,
   type CartQuantities,
 } from "@/lib/order";
-import LocationMapPreview from "@/components/LocationMapPreview";
 
 const WHATSAPP_NUMBER = "963996006263";
 const RESTAURANT_LOCATION = { lat: 35.3311, lng: 40.1407 };
@@ -70,6 +69,7 @@ export default function CheckoutPage() {
   const [manualLocationInput, setManualLocationInput] = useState("");
   const [manualLocationMessage, setManualLocationMessage] = useState("");
   const [showManualLocation, setShowManualLocation] = useState(false);
+  const [orderNotes, setOrderNotes] = useState("");
   const [clearCartConfirmOpen, setClearCartConfirmOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
 
@@ -112,6 +112,7 @@ export default function CheckoutPage() {
     setCouponCode("");
     setCouponApplied(false);
     setCouponMessage("");
+    setOrderNotes("");
   };
 
   const requestLocation = () => {
@@ -179,7 +180,7 @@ export default function CheckoutPage() {
     if (!coordinates || distance === null || deliveryFee === null) return;
 
     setSummaryOpen(false);
-    const mapLink = `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
+    const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${coordinates.lat},${coordinates.lng}`)}`;
     const whatsappWindow = window.open("about:blank", "_blank");
     setTelegramStatus("sending");
     setTelegramMessage("جارٍ تجهيز طلبك...");
@@ -202,6 +203,7 @@ export default function CheckoutPage() {
           billableKilometers,
           latitude: coordinates.lat,
           longitude: coordinates.lng,
+          notes: orderNotes.trim(),
         }),
       });
       const responseText = await response.text();
@@ -240,6 +242,7 @@ export default function CheckoutPage() {
       `المجموع الكلي: ${formatSYP(total)}`,
       "",
       `موقع الزبون: ${mapLink}`,
+      ...(orderNotes.trim() ? ["", "ملاحظات الطلب:", orderNotes.trim()] : []),
       "يرجى تأكيد الطلب والوقت المتوقع للتوصيل. شكراً.",
     ].join("\n");
 
@@ -378,8 +381,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <LocationMapPreview coordinates={coordinates} />
-
               <button
                 type="button"
                 onClick={requestLocation}
@@ -476,6 +477,29 @@ export default function CheckoutPage() {
                   {locationError}
                 </p>
               )}
+            </section>
+
+            <section className="rounded-3xl border border-foreground/10 bg-white/[0.035] p-5 shadow-2xl md:p-7">
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <MessageCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="font-black">ملاحظات الطلب</h2>
+                  <p className="mt-1 text-sm leading-6 text-foreground">أضف أي تفاصيل تساعدنا على تجهيز طلبك كما تريد.</p>
+                </div>
+              </div>
+              <label htmlFor="order-notes" className="sr-only">ملاحظات الطلب</label>
+              <textarea
+                id="order-notes"
+                value={orderNotes}
+                onChange={(event) => setOrderNotes(event.target.value.slice(0, 1000))}
+                placeholder="مثال: بدون بصل، الصوصات على الجانب..."
+                maxLength={1000}
+                rows={4}
+                className="w-full resize-y rounded-2xl border border-foreground/15 bg-black/20 px-4 py-3 text-sm leading-7 text-foreground outline-none transition-colors placeholder:text-foreground/45 focus:border-primary"
+              />
+              <p className="mt-2 text-left text-[11px] text-foreground">{orderNotes.length}/1000</p>
             </section>
 
             <section className="rounded-3xl border border-foreground/10 bg-white/[0.035] p-5 shadow-2xl md:p-7">
@@ -625,6 +649,12 @@ export default function CheckoutPage() {
             </div>
 
             <p className="mt-4 text-center text-xs leading-6 text-foreground">تأكد من الأصناف والموقع، ثم اضغط للانتقال إلى واتساب.</p>
+            {orderNotes.trim() && (
+              <div className="mt-4 rounded-2xl border border-primary/15 bg-primary/5 p-4 text-sm leading-7">
+                <p className="mb-1 font-black text-primary">ملاحظات الطلب</p>
+                <p className="whitespace-pre-wrap break-words text-foreground">{orderNotes.trim()}</p>
+              </div>
+            )}
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row">
               <button type="button" onClick={() => setSummaryOpen(false)} className="flex-1 rounded-xl border border-foreground/15 px-4 py-3.5 text-sm font-bold transition-colors hover:border-primary hover:text-primary">
                 تعديل الطلب

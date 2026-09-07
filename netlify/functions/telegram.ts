@@ -17,6 +17,7 @@ type TelegramOrderRequest = {
   latitude: number;
   longitude: number;
   couponCode?: string;
+  notes?: string;
 };
 
 type NetlifyEvent = {
@@ -67,6 +68,17 @@ const isValidOrder = (body: unknown): body is TelegramOrderRequest => {
     return false;
   }
 
+  if (
+    order.latitude < -90 ||
+    order.latitude > 90 ||
+    order.longitude < -180 ||
+    order.longitude > 180 ||
+    (order.notes !== undefined &&
+      (typeof order.notes !== "string" || order.notes.length > 1000))
+  ) {
+    return false;
+  }
+
   return order.items.every(
     (item) =>
       item &&
@@ -94,7 +106,7 @@ const createTelegramMessage = (
   order: TelegramOrderRequest,
   verificationCode: string,
 ) => {
-  const mapLink = `https://www.google.com/maps?q=${order.latitude},${order.longitude}`;
+  const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${order.latitude},${order.longitude}`)}`;
   const timestamp = new Intl.DateTimeFormat("en-US", {
     numberingSystem: "latn",
     dateStyle: "short",
@@ -126,6 +138,7 @@ const createTelegramMessage = (
     `المجموع الكلي: ${formatSYP(order.total)}`,
     "",
     `موقع الزبون: ${mapLink}`,
+    ...(order.notes?.trim() ? ["", "ملاحظات الطلب:", order.notes.trim()] : []),
     "",
     "هذه هي النسخة الرسمية للمقارنة مع رسالة واتساب.",
   ].join("\n");
