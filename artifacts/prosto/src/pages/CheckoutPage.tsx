@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowRight,
@@ -28,9 +28,6 @@ const RESTAURANT_LOCATION = { lat: 35.3311, lng: 40.1407 };
 const DELIVERY_RATE_PER_KM = 1000;
 const COUPON_CODE = "Hello";
 const COUPON_DISCOUNT_RATE = 0.1;
-const LOCATION_CAPTURE_TIMEOUT_MS = 25000;
-const MAX_ACCEPTABLE_LOCATION_ACCURACY_METERS = 50;
-const TARGET_LOCATION_ACCURACY_METERS = 25;
 
 type LocationStatus = "idle" | "loading" | "success" | "error";
 type TelegramStatus = "idle" | "sending" | "success" | "error";
@@ -62,7 +59,6 @@ export default function CheckoutPage() {
   const [, setLocation] = useLocation();
   const [cart, setCart] = useState<CartQuantities>(() => readCart());
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationError, setLocationError] = useState("");
   const [couponCode, setCouponCode] = useState("");
@@ -73,23 +69,8 @@ export default function CheckoutPage() {
   const [manualLocationInput, setManualLocationInput] = useState("");
   const [manualLocationMessage, setManualLocationMessage] = useState("");
   const [showManualLocation, setShowManualLocation] = useState(false);
-  const [orderNotes, setOrderNotes] = useState("");
   const [clearCartConfirmOpen, setClearCartConfirmOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const locationWatchRef = useRef<number | null>(null);
-  const locationTimerRef = useRef<number | null>(null);
-  const bestLocationRef = useRef<GeolocationPosition | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (locationWatchRef.current !== null) {
-        navigator.geolocation?.clearWatch(locationWatchRef.current);
-      }
-      if (locationTimerRef.current !== null) {
-        window.clearTimeout(locationTimerRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     window.localStorage.setItem("prosto-cart-v1", JSON.stringify(cart));
@@ -130,111 +111,34 @@ export default function CheckoutPage() {
     setCouponCode("");
     setCouponApplied(false);
     setCouponMessage("");
-    setOrderNotes("");
   };
 
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus("error");
-      setLocationError("المتصفح لا يدعم تحديد الموقع. استخدم خرائط Google لنسخ الإحداثيات وإدخالها يدوياً.");
+      setLocationError("المتصفح لا يدعم تحديد الموقع. افتح الصفحة من هاتف حديث وحاول مجددًا.");
       return;
     }
 
-    if (locationWatchRef.current !== null) {
-      navigator.geolocation.clearWatch(locationWatchRef.current);
-      locationWatchRef.current = null;
-    }
-    if (locationTimerRef.current !== null) {
-      window.clearTimeout(locationTimerRef.current);
-      locationTimerRef.current = null;
-    }
-
-    bestLocationRef.current = null;
-    setCoordinates(null);
-    setLocationAccuracy(null);
     setLocationStatus("loading");
     setLocationError("");
-    setManualLocationMessage("");
-
-    const finishLocationCapture = (position: GeolocationPosition) => {
-      if (locationWatchRef.current !== null) {
-        navigator.geolocation.clearWatch(locationWatchRef.current);
-        locationWatchRef.current = null;
-      }
-      if (locationTimerRef.current !== null) {
-        window.clearTimeout(locationTimerRef.current);
-        locationTimerRef.current = null;
-      }
-
-      setCoordinates({
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      });
-      setLocationAccuracy(position.coords.accuracy);
-      setLocationStatus("success");
-      setLocationError("");
-      setShowManualLocation(false);
-      setManualLocationMessage("");
-    };
-
-    const finishWithLocationError = (message: string) => {
-      if (locationWatchRef.current !== null) {
-        navigator.geolocation.clearWatch(locationWatchRef.current);
-        locationWatchRef.current = null;
-      }
-      if (locationTimerRef.current !== null) {
-        window.clearTimeout(locationTimerRef.current);
-        locationTimerRef.current = null;
-      }
-
-      setLocationStatus("error");
-      setLocationError(message);
-      setShowManualLocation(true);
-    };
-
-    const handlePosition = (position: GeolocationPosition) => {
-      const currentBest = bestLocationRef.current;
-      if (!currentBest || position.coords.accuracy < currentBest.coords.accuracy) {
-        bestLocationRef.current = position;
-      }
-
-      if (position.coords.accuracy <= TARGET_LOCATION_ACCURACY_METERS) {
-        finishLocationCapture(position);
-      }
-    };
-
-    const handlePositionError = (error: GeolocationPositionError) => {
-      if (error.code === 1) {
-        finishWithLocationError(
-          "تم رفض إذن الموقع. فعّل إذن الموقع للمتصفح وخيار الموقع الدقيق من إعدادات الهاتف، ثم أعد المحاولة.",
-        );
-      }
-    };
-
-    locationWatchRef.current = navigator.geolocation.watchPosition(handlePosition, handlePositionError, {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: LOCATION_CAPTURE_TIMEOUT_MS,
-    });
-
-    locationTimerRef.current = window.setTimeout(() => {
-      const bestPosition = bestLocationRef.current;
-      if (!bestPosition) {
-        finishWithLocationError(
-          "لم تصل أي قراءة GPS. فعّل GPS/خدمات الموقع، اخرج إلى مكان مفتوح، ثم اضغط إعادة المحاولة.",
-        );
-        return;
-      }
-
-      if (bestPosition.coords.accuracy > MAX_ACCEPTABLE_LOCATION_ACCURACY_METERS) {
-        finishWithLocationError(
-          `دقة GPS الحالية تقريباً ±${Math.round(bestPosition.coords.accuracy)} متر، وهي غير كافية لضمان موقع صحيح. فعّل «الموقع الدقيق» وحاول من جديد، أو انسخ إحداثيات النقطة الزرقاء من خرائط Google.`,
-        );
-        return;
-      }
-
-      finishLocationCapture(bestPosition);
-    }, LOCATION_CAPTURE_TIMEOUT_MS);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCoordinates({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setLocationStatus("success");
+        setShowManualLocation(false);
+        setManualLocationMessage("");
+      },
+      () => {
+        setLocationStatus("error");
+        setLocationError("لم نتمكن من الوصول إلى موقعك. يمكنك إدخاله يدوياً بدلاً من ذلك.");
+        setShowManualLocation(true);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
   };
 
   const applyManualLocation = () => {
@@ -259,7 +163,6 @@ export default function CheckoutPage() {
     }
 
     setCoordinates({ lat: latitude, lng: longitude });
-    setLocationAccuracy(null);
     setLocationStatus("success");
     setLocationError("");
     setManualLocationMessage("تم حفظ موقعك اليدوي وحساب التوصيل.");
@@ -275,7 +178,7 @@ export default function CheckoutPage() {
     if (!coordinates || distance === null || deliveryFee === null) return;
 
     setSummaryOpen(false);
-    const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${coordinates.lat},${coordinates.lng}`)}`;
+    const mapLink = `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
     const whatsappWindow = window.open("about:blank", "_blank");
     setTelegramStatus("sending");
     setTelegramMessage("جارٍ تجهيز طلبك...");
@@ -298,7 +201,6 @@ export default function CheckoutPage() {
           billableKilometers,
           latitude: coordinates.lat,
           longitude: coordinates.lng,
-          notes: orderNotes.trim(),
         }),
       });
       const responseText = await response.text();
@@ -337,7 +239,6 @@ export default function CheckoutPage() {
       `المجموع الكلي: ${formatSYP(total)}`,
       "",
       `موقع الزبون: ${mapLink}`,
-      ...(orderNotes.trim() ? ["", "ملاحظات الطلب:", orderNotes.trim()] : []),
       "يرجى تأكيد الطلب والوقت المتوقع للتوصيل. شكراً.",
     ].join("\n");
 
@@ -472,9 +373,7 @@ export default function CheckoutPage() {
                 </div>
                 <div>
                   <h2 className="font-black">حدد موقع التوصيل</h2>
-                 <p className="mt-1 text-sm leading-6 text-foreground">
-                   سننتظر أفضل قراءة GPS حتى 25 ثانية ولن نعتمد موقعاً تقريبياً. فعّل «الموقع الدقيق» في هاتفك.
-                 </p>
+                  <p className="mt-1 text-sm leading-6 text-foreground">سنحسب المسافة من المطعم ونضيف 1,000 ليرة عن كل كيلومتر.</p>
                 </div>
               </div>
 
@@ -557,14 +456,6 @@ export default function CheckoutPage() {
 
               {locationStatus === "success" && distance !== null && deliveryFee !== null && (
                 <div className="mt-4 rounded-2xl border border-primary/20 bg-black/15 p-4">
-                  {locationAccuracy !== null && (
-                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-foreground/10 pb-3 text-sm">
-                      <span className="text-foreground">دقة GPS المعتمدة</span>
-                      <strong className={locationAccuracy <= TARGET_LOCATION_ACCURACY_METERS ? "text-emerald-300" : "text-primary"}>
-                        ±{Math.round(locationAccuracy)} متر
-                      </strong>
-                    </div>
-                  )}
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-foreground">المسافة المحسوبة</span>
                     <strong className="text-primary">{formatDistance(distance)}</strong>
@@ -582,29 +473,6 @@ export default function CheckoutPage() {
                   {locationError}
                 </p>
               )}
-            </section>
-
-            <section className="rounded-3xl border border-foreground/10 bg-white/[0.035] p-5 shadow-2xl md:p-7">
-              <div className="mb-4 flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                  <MessageCircle className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="font-black">ملاحظات الطلب</h2>
-                  <p className="mt-1 text-sm leading-6 text-foreground">أضف أي تفاصيل تساعدنا على تجهيز طلبك كما تريد.</p>
-                </div>
-              </div>
-              <label htmlFor="order-notes" className="sr-only">ملاحظات الطلب</label>
-              <textarea
-                id="order-notes"
-                value={orderNotes}
-                onChange={(event) => setOrderNotes(event.target.value.slice(0, 1000))}
-                placeholder="مثال: بدون بصل، الصوصات على الجانب..."
-                maxLength={1000}
-                rows={4}
-                className="w-full resize-y rounded-2xl border border-foreground/15 bg-black/20 px-4 py-3 text-sm leading-7 text-foreground outline-none transition-colors placeholder:text-foreground/45 focus:border-primary"
-              />
-              <p className="mt-2 text-left text-[11px] text-foreground">{orderNotes.length}/1000</p>
             </section>
 
             <section className="rounded-3xl border border-foreground/10 bg-white/[0.035] p-5 shadow-2xl md:p-7">
@@ -754,12 +622,6 @@ export default function CheckoutPage() {
             </div>
 
             <p className="mt-4 text-center text-xs leading-6 text-foreground">تأكد من الأصناف والموقع، ثم اضغط للانتقال إلى واتساب.</p>
-            {orderNotes.trim() && (
-              <div className="mt-4 rounded-2xl border border-primary/15 bg-primary/5 p-4 text-sm leading-7">
-                <p className="mb-1 font-black text-primary">ملاحظات الطلب</p>
-                <p className="whitespace-pre-wrap break-words text-foreground">{orderNotes.trim()}</p>
-              </div>
-            )}
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row">
               <button type="button" onClick={() => setSummaryOpen(false)} className="flex-1 rounded-xl border border-foreground/15 px-4 py-3.5 text-sm font-bold transition-colors hover:border-primary hover:text-primary">
                 تعديل الطلب

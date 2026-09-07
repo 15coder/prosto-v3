@@ -1,2 +1,1 @@
 - [Netlify Telegram delivery](netlify-telegram.md) — Netlify serves the frontend statically; Telegram credentials must be read only by the Netlify Function runtime.
-- [Browser location accuracy](browser-location-accuracy.md) — browser GPS is probabilistic; reject coarse fixes and expose accuracy instead of silently trusting the first reading.

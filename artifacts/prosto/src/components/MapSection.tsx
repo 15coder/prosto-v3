@@ -27,10 +27,10 @@ export default function MapSection() {
 
       instanceRef.current = map;
 
-       // OpenStreetMap — free map tiles with no API key
+      // CartoDB Positron — flat modern light tiles
       L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        { subdomains: 'abcd', maxZoom: 20 }
       ).addTo(map);
 
       // Custom SVG marker
@@ -64,7 +64,7 @@ export default function MapSection() {
         .openPopup();
 
       // Attribution minimal
-       L.control.attribution({ prefix: '© OpenStreetMap' }).addTo(map);
+      L.control.attribution({ prefix: '© CartoDB' }).addTo(map);
       L.control.zoom({ position: 'bottomleft' }).addTo(map);
     });
 
