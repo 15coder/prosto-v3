@@ -201,7 +201,7 @@ export default function CheckoutPage() {
         window.location.href = whatsappUrl;
       }
       setTelegramStatus("success");
-      setTelegramMessage("تم إرسال نسخة رسمية إلى تليجرام. قارن رمز المطابقة والسعر قبل اعتماد الطلب.");
+      setTelegramMessage("تم تجهيز رسالتك، وسيتم فتح واتساب الآن.");
     } catch (error) {
       whatsappWindow?.close();
       setTelegramStatus("error");
@@ -441,9 +441,6 @@ export default function CheckoutPage() {
                   {telegramMessage}
                 </p>
               )}
-              <p className="mt-3 text-center text-[11px] leading-5 text-foreground">
-                تُرسل نسخة رسمية إلى تليجرام أولاً، ثم تفتح محادثة واتساب برسالة تحمل رمز المطابقة.
-              </p>
             </section>
           </aside>
         </div>

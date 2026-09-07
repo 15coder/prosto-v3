@@ -11,6 +11,7 @@ import MapSection from '@/components/MapSection';
 import ReadingProgress from '@/components/ReadingProgress';
 import TypewriterText from '@/components/TypewriterText';
 import WavyDivider from '@/components/WavyDivider';
+import FloatingSidebar from '@/components/FloatingSidebar';
 import { HeartIcon } from '@/components/AnimatedIcons';
 
 // ─── Images ─────────────────────────────────────────────────────────────────
@@ -160,7 +161,7 @@ function CoderCredit() {
         transition={{ type: "spring", stiffness: 240, damping: 22, delay: 0.25 }}
         className="text-foreground text-xs"
       >
-        تصميم وبرمجة
+         من برمجة
       </motion.span>
 
       <motion.span
@@ -265,6 +266,7 @@ export default function Home() {
 
       {/* ─── Global overlays ─── */}
       <ReadingProgress />
+      <FloatingSidebar />
 
       {/* ─── NAVBAR ─── */}
       <motion.nav
