@@ -5,6 +5,7 @@ import NotFound from '@/pages/not-found';
 import Home from '@/pages/Home';
 import MenuPage from '@/pages/MenuPage';
 import CheckoutPage from '@/pages/CheckoutPage';
+import InstallPage from '@/pages/InstallPage';
 import PWAInstallBanner from '@/components/PWAInstallBanner';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/menu" component={MenuPage} />
       <Route path="/checkout" component={CheckoutPage} />
+      <Route path="/install" component={InstallPage} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -8,9 +8,11 @@ import {
   Minus,
   Navigation,
   Plus,
+  RotateCcw,
   ShoppingBag,
   Tag,
   Trash2,
+  X,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -64,6 +66,11 @@ export default function CheckoutPage() {
   const [couponMessage, setCouponMessage] = useState("");
   const [telegramStatus, setTelegramStatus] = useState<TelegramStatus>("idle");
   const [telegramMessage, setTelegramMessage] = useState("");
+  const [manualLocationInput, setManualLocationInput] = useState("");
+  const [manualLocationMessage, setManualLocationMessage] = useState("");
+  const [showManualLocation, setShowManualLocation] = useState(false);
+  const [clearCartConfirmOpen, setClearCartConfirmOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   useEffect(() => {
     window.localStorage.setItem("prosto-cart-v1", JSON.stringify(cart));
@@ -100,6 +107,10 @@ export default function CheckoutPage() {
   const clearCart = () => {
     setCart({});
     window.localStorage.removeItem("prosto-cart-v1");
+    setClearCartConfirmOpen(false);
+    setCouponCode("");
+    setCouponApplied(false);
+    setCouponMessage("");
   };
 
   const requestLocation = () => {
@@ -118,22 +129,59 @@ export default function CheckoutPage() {
           lng: position.coords.longitude,
         });
         setLocationStatus("success");
+        setShowManualLocation(false);
+        setManualLocationMessage("");
       },
       () => {
         setLocationStatus("error");
-        setLocationError("لم نتمكن من الوصول إلى موقعك. فعّل إذن الموقع ثم اضغط الزر مرة أخرى.");
+        setLocationError("لم نتمكن من الوصول إلى موقعك. يمكنك إدخاله يدوياً بدلاً من ذلك.");
+        setShowManualLocation(true);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     );
   };
 
+  const applyManualLocation = () => {
+    const parts = manualLocationInput
+      .replace("،", ",")
+      .split(/[,\s]+/)
+      .map((part) => Number(part.trim()))
+      .filter((part) => Number.isFinite(part));
+
+    const [latitude, longitude] = parts;
+    if (
+      parts.length !== 2 ||
+      latitude === undefined ||
+      longitude === undefined ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      setManualLocationMessage("أدخل الإحداثيات بهذا الشكل: 35.3311, 40.1407");
+      return;
+    }
+
+    setCoordinates({ lat: latitude, lng: longitude });
+    setLocationStatus("success");
+    setLocationError("");
+    setManualLocationMessage("تم حفظ موقعك اليدوي وحساب التوصيل.");
+    setShowManualLocation(false);
+  };
+
+  const openOrderSummary = () => {
+    if (!coordinates || distance === null || deliveryFee === null) return;
+    setSummaryOpen(true);
+  };
+
   const sendToWhatsApp = async () => {
     if (!coordinates || distance === null || deliveryFee === null) return;
 
+    setSummaryOpen(false);
     const mapLink = `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
     const whatsappWindow = window.open("about:blank", "_blank");
     setTelegramStatus("sending");
-    setTelegramMessage("جارٍ إرسال نسخة التحقق الرسمية إلى المطعم...");
+    setTelegramMessage("جارٍ تجهيز طلبك...");
 
     try {
       const response = await fetch("/.netlify/functions/telegram", {
@@ -205,7 +253,11 @@ export default function CheckoutPage() {
     } catch (error) {
       whatsappWindow?.close();
       setTelegramStatus("error");
-      setTelegramMessage(error instanceof Error ? error.message : "تعذر إرسال نسخة التحقق.");
+      setTelegramMessage(
+        navigator.onLine
+          ? "تعذر إرسال الطلب حالياً. حاول مرة أخرى."
+          : "لا يوجد اتصال بالإنترنت. تحقق من الاتصال ثم أعد المحاولة.",
+      );
     }
   };
 
@@ -270,7 +322,7 @@ export default function CheckoutPage() {
               </div>
               <button
                 type="button"
-                onClick={clearCart}
+                onClick={() => setClearCartConfirmOpen(true)}
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-red-300/70 transition-colors hover:text-red-300"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -345,6 +397,62 @@ export default function CheckoutPage() {
                   </>
                 )}
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowManualLocation((current) => !current);
+                  setManualLocationMessage("");
+                }}
+                className="mt-3 w-full rounded-xl border border-foreground/15 px-5 py-3 text-sm font-bold text-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                {showManualLocation ? "إغلاق الإدخال اليدوي" : "إدخال الموقع يدوياً"}
+              </button>
+
+              {showManualLocation && (
+                <form
+                  className="mt-4 rounded-2xl border border-foreground/10 bg-black/15 p-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    applyManualLocation();
+                  }}
+                >
+                  <label htmlFor="manual-location" className="text-sm font-bold">
+                    إحداثيات موقعك
+                  </label>
+                  <p className="mt-1 text-xs leading-5 text-foreground">
+                    انسخ الإحداثيات من خرائط Google بهذا الشكل: خط العرض، خط الطول
+                  </p>
+                  <input
+                    id="manual-location"
+                    value={manualLocationInput}
+                    onChange={(event) => setManualLocationInput(event.target.value)}
+                    placeholder="35.3311, 40.1407"
+                    inputMode="decimal"
+                    dir="ltr"
+                    className="mt-3 w-full rounded-xl border border-foreground/15 bg-black/20 px-3 py-3 text-center text-sm font-bold text-foreground outline-none transition-colors placeholder:text-foreground/40 focus:border-primary"
+                  />
+                  <a
+                    href="https://maps.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-xs font-bold text-primary hover:underline"
+                  >
+                    افتح خرائط Google لنسخ الإحداثيات
+                  </a>
+                  <button
+                    type="submit"
+                    className="mt-3 w-full rounded-xl bg-primary px-4 py-3 text-sm font-black text-black transition-transform hover:-translate-y-0.5"
+                  >
+                    حفظ الموقع وحساب التوصيل
+                  </button>
+                  {manualLocationMessage && (
+                    <p className={`mt-3 text-xs font-bold ${locationStatus === "success" ? "text-emerald-300" : "text-red-300"}`}>
+                      {manualLocationMessage}
+                    </p>
+                  )}
+                </form>
+              )}
 
               {locationStatus === "success" && distance !== null && deliveryFee !== null && (
                 <div className="mt-4 rounded-2xl border border-primary/20 bg-black/15 p-4">
@@ -425,7 +533,7 @@ export default function CheckoutPage() {
 
               <button
                 type="button"
-                onClick={sendToWhatsApp}
+                onClick={openOrderSummary}
                 disabled={!coordinates || locationStatus !== "success" || telegramStatus === "sending"}
                 className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-4 font-black text-[#071b0d] transition-all hover:scale-[1.01] hover:shadow-[0_0_25px_rgba(37,211,102,0.3)] disabled:cursor-not-allowed disabled:opacity-35"
               >
@@ -433,18 +541,98 @@ export default function CheckoutPage() {
                 {telegramStatus === "sending" ? "جارٍ تجهيز الطلب..." : "اطلب الآن عبر واتساب"}
               </button>
               {telegramMessage && (
-                <p
-                  className={`mt-3 text-center text-[11px] font-bold leading-5 ${
-                    telegramStatus === "error" ? "text-red-300" : "text-foreground"
-                  }`}
-                >
-                  {telegramMessage}
-                </p>
+                <div className="mt-3 text-center">
+                  <p className={`text-[11px] font-bold leading-5 ${telegramStatus === "error" ? "text-red-300" : "text-foreground"}`}>
+                    {telegramMessage}
+                  </p>
+                  {telegramStatus === "error" && (
+                    <button
+                      type="button"
+                      onClick={() => void sendToWhatsApp()}
+                      disabled={!coordinates}
+                      className="mt-2 inline-flex items-center gap-2 rounded-full border border-primary/35 px-4 py-2 text-xs font-black text-primary transition-colors hover:bg-primary hover:text-black disabled:opacity-50"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      إعادة المحاولة
+                    </button>
+                  )}
+                </div>
               )}
             </section>
           </aside>
         </div>
       </div>
+
+      {clearCartConfirmOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="clear-cart-title">
+          <div className="w-full max-w-sm rounded-3xl border border-red-300/20 bg-[#15120a] p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="clear-cart-title" className="text-lg font-black">إفراغ السلة؟</h2>
+                <p className="mt-2 text-sm leading-6 text-foreground">سيتم حذف كل الأصناف المختارة ولا يمكن التراجع عن ذلك.</p>
+              </div>
+              <button type="button" onClick={() => setClearCartConfirmOpen(false)} className="rounded-full p-2 text-foreground transition-colors hover:bg-white/10 hover:text-primary" aria-label="إغلاق">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={() => setClearCartConfirmOpen(false)} className="flex-1 rounded-xl border border-foreground/15 px-4 py-3 text-sm font-bold transition-colors hover:border-primary hover:text-primary">
+                إلغاء
+              </button>
+              <button type="button" onClick={clearCart} className="flex-1 rounded-xl bg-red-300 px-4 py-3 text-sm font-black text-black transition-transform hover:-translate-y-0.5">
+                إفراغ السلة
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {summaryOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm sm:p-5" role="dialog" aria-modal="true" aria-labelledby="order-summary-title">
+          <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl border border-primary/25 bg-[#15120a] p-5 shadow-2xl sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold tracking-widest text-primary">مراجعة أخيرة</p>
+                <h2 id="order-summary-title" className="mt-2 text-2xl font-black">ملخص طلبك</h2>
+              </div>
+              <button type="button" onClick={() => setSummaryOpen(false)} className="rounded-full p-2 text-foreground transition-colors hover:bg-white/10 hover:text-primary" aria-label="إغلاق">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              {lines.map((line) => (
+                <div key={line.id} className="flex items-center justify-between gap-4 rounded-2xl border border-foreground/10 bg-white/[0.035] p-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-bold">{line.name}</p>
+                    <p className="mt-1 text-xs text-foreground">الكمية: {line.quantity}</p>
+                  </div>
+                  <strong className="shrink-0 text-primary">{formatSYP(line.lineTotal)}</strong>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 space-y-3 rounded-2xl border border-foreground/10 bg-black/15 p-4 text-sm">
+              <div className="flex items-center justify-between gap-3"><span className="text-foreground">مجموع الوجبات</span><strong>{formatSYP(subtotal)}</strong></div>
+              {couponApplied && <div className="flex items-center justify-between gap-3 text-emerald-300"><span>الخصم</span><strong>-{formatSYP(discount)}</strong></div>}
+              <div className="flex items-center justify-between gap-3"><span className="text-foreground">التوصيل</span><strong>{formatSYP(deliveryFee ?? 0)}</strong></div>
+              <div className="border-t border-foreground/10 pt-3">
+                <div className="flex items-center justify-between gap-3 text-base"><span className="font-bold">المجموع الكلي</span><strong className="text-xl text-primary">{formatSYP(total)}</strong></div>
+              </div>
+            </div>
+
+            <p className="mt-4 text-center text-xs leading-6 text-foreground">تأكد من الأصناف والموقع، ثم اضغط للانتقال إلى واتساب.</p>
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row">
+              <button type="button" onClick={() => setSummaryOpen(false)} className="flex-1 rounded-xl border border-foreground/15 px-4 py-3.5 text-sm font-bold transition-colors hover:border-primary hover:text-primary">
+                تعديل الطلب
+              </button>
+              <button type="button" onClick={() => void sendToWhatsApp()} className="flex-1 rounded-xl bg-[#25D366] px-4 py-3.5 text-sm font-black text-[#071b0d] transition-transform hover:-translate-y-0.5">
+                متابعة إلى واتساب
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

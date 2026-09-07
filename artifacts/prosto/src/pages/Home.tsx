@@ -12,6 +12,7 @@ import ReadingProgress from '@/components/ReadingProgress';
 import TypewriterText from '@/components/TypewriterText';
 import WavyDivider from '@/components/WavyDivider';
 import FloatingSidebar from '@/components/FloatingSidebar';
+import RestaurantStatus from '@/components/RestaurantStatus';
 import { HeartIcon } from '@/components/AnimatedIcons';
 
 // ─── Images ─────────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ const navLinks = [
   { name: "المنيو",   href: "/menu" },
   { name: "المعرض",   href: "#gallery" },
   { name: "موقعنا",   href: "#location" },
+  { name: "تثبيت التطبيق", href: "/install" },
 ];
 
 type GalleryFilter = 'burger' | 'chicken' | 'pizza';
@@ -293,10 +295,10 @@ export default function Home() {
           </a>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-7 font-medium">
+          <div className="hidden items-center gap-4 font-medium lg:flex xl:gap-6">
             {navLinks.map((link, i) => (
               <motion.a key={link.name} href={link.href}
-                className="text-foreground hover:text-primary transition-colors text-base relative group"
+                className="relative text-sm text-foreground transition-colors hover:text-primary xl:text-base group"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 * i }}
@@ -411,10 +413,11 @@ export default function Home() {
             className="flex flex-col items-center text-center max-w-4xl mx-auto"
             variants={staggerContainer} initial="hidden" animate="show"
           >
-            <motion.div variants={fadeUp} className="mb-6">
-              <span className="px-5 py-2 rounded-full border border-primary/30 bg-primary/10 text-primary font-medium tracking-widest text-xs uppercase shadow-[0_0_20px_rgba(245,200,0,0.15)] backdrop-blur-md">
+            <motion.div variants={fadeUp} className="mb-6 flex flex-wrap items-center justify-center gap-3">
+              <span className="rounded-full border border-primary/30 bg-primary/10 px-5 py-2 text-xs font-medium uppercase tracking-widest text-primary shadow-[0_0_20px_rgba(245,200,0,0.15)] backdrop-blur-md">
                 التجربة الأقوى في دير الزور
               </span>
+              <RestaurantStatus />
             </motion.div>
 
             {/* Animated logo */}
