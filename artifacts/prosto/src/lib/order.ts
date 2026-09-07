@@ -5,8 +5,48 @@ export type CartLine = MenuItem & { quantity: number; lineTotal: number };
 
 export const CART_STORAGE_KEY = "prosto-cart-v1";
 
+export interface LocationResult {
+  lat: number;
+  lng: number;
+  mapsUrl: string;
+}
+
 export const formatSYP = (amount: number) =>
   `${new Intl.NumberFormat("en-US", { numberingSystem: "latn" }).format(Math.round(amount))} ل.س`;
+
+export const getExactLocation = (): Promise<LocationResult> => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("المتصفح لا يدعم تحديد الموقع"));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
+
+        resolve({ lat, lng, mapsUrl });
+      },
+      (error) => {
+        reject(error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      },
+    );
+  });
+};
+
+export const sendOrderToWhatsApp = (phone: string, orderText: string, mapsUrl: string) => {
+  const fullMessage = `${orderText}\n\n📍 موقع التوصيل:\n${mapsUrl}`;
+  const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(fullMessage)}`;
+
+  window.open(whatsappUrl, "_blank");
+};
 
 export function readCart(): CartQuantities {
   if (typeof window === "undefined") return {};

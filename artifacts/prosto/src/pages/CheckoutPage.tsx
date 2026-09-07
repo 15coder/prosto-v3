@@ -19,7 +19,9 @@ import {
   formatSYP,
   getCartLines,
   getCartTotal,
+  getExactLocation,
   readCart,
+  sendOrderToWhatsApp,
   type CartQuantities,
 } from "@/lib/order";
 
@@ -59,6 +61,7 @@ export default function CheckoutPage() {
   const [, setLocation] = useLocation();
   const [cart, setCart] = useState<CartQuantities>(() => readCart());
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapsUrl, setMapsUrl] = useState("");
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationError, setLocationError] = useState("");
   const [couponCode, setCouponCode] = useState("");
@@ -113,32 +116,21 @@ export default function CheckoutPage() {
     setCouponMessage("");
   };
 
-  const requestLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationStatus("error");
-      setLocationError("المتصفح لا يدعم تحديد الموقع. افتح الصفحة من هاتف حديث وحاول مجددًا.");
-      return;
-    }
-
+  const requestLocation = async () => {
     setLocationStatus("loading");
     setLocationError("");
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCoordinates({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setLocationStatus("success");
-        setShowManualLocation(false);
-        setManualLocationMessage("");
-      },
-      () => {
-        setLocationStatus("error");
-        setLocationError("لم نتمكن من الوصول إلى موقعك. يمكنك إدخاله يدوياً بدلاً من ذلك.");
-        setShowManualLocation(true);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+    try {
+      const location = await getExactLocation();
+      setCoordinates({ lat: location.lat, lng: location.lng });
+      setMapsUrl(location.mapsUrl);
+      setLocationStatus("success");
+      setShowManualLocation(false);
+      setManualLocationMessage("");
+    } catch {
+      setLocationStatus("error");
+      setLocationError("لم نتمكن من الوصول إلى موقعك. يمكنك إدخاله يدوياً بدلاً من ذلك.");
+      setShowManualLocation(true);
+    }
   };
 
   const applyManualLocation = () => {
@@ -163,6 +155,7 @@ export default function CheckoutPage() {
     }
 
     setCoordinates({ lat: latitude, lng: longitude });
+    setMapsUrl(`https://maps.google.com/?q=${latitude},${longitude}`);
     setLocationStatus("success");
     setLocationError("");
     setManualLocationMessage("تم حفظ موقعك اليدوي وحساب التوصيل.");
@@ -178,8 +171,6 @@ export default function CheckoutPage() {
     if (!coordinates || distance === null || deliveryFee === null) return;
 
     setSummaryOpen(false);
-    const mapLink = `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
-    const whatsappWindow = window.open("about:blank", "_blank");
     setTelegramStatus("sending");
     setTelegramMessage("جارٍ تجهيز طلبك...");
 
@@ -238,20 +229,17 @@ export default function CheckoutPage() {
       `أجرة التوصيل: ${formatSYP(deliveryFee)}`,
       `المجموع الكلي: ${formatSYP(total)}`,
       "",
-      `موقع الزبون: ${mapLink}`,
       "يرجى تأكيد الطلب والوقت المتوقع للتوصيل. شكراً.",
     ].join("\n");
 
-      const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
-      if (whatsappWindow) {
-        whatsappWindow.location.href = whatsappUrl;
-      } else {
-        window.location.href = whatsappUrl;
-      }
+      sendOrderToWhatsApp(
+        WHATSAPP_NUMBER,
+        message,
+        mapsUrl || `https://maps.google.com/?q=${coordinates.lat},${coordinates.lng}`,
+      );
       setTelegramStatus("success");
       setTelegramMessage("تم تجهيز رسالتك، وسيتم فتح واتساب الآن.");
     } catch (error) {
-      whatsappWindow?.close();
       setTelegramStatus("error");
       setTelegramMessage(
         navigator.onLine
