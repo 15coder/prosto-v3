@@ -136,7 +136,7 @@ export default function CheckoutPage() {
     setTelegramMessage("جارٍ إرسال نسخة التحقق الرسمية إلى المطعم...");
 
     try {
-      const response = await fetch("/api/telegram/order", {
+      const response = await fetch("/.netlify/functions/telegram", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

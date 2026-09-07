@@ -2,6 +2,7 @@
   base    = "."
   command = "pnpm install && pnpm --filter @workspace/prosto run build"
   publish = "artifacts/prosto/dist/public"
+  functions = "netlify/functions"
 
 [build.environment]
   BASE_PATH = "/"

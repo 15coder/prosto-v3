@@ -1,0 +1,1 @@
+- [Netlify Telegram delivery](netlify-telegram.md) — Netlify serves the frontend statically; Telegram credentials must be read only by the Netlify Function runtime.
